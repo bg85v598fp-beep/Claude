@@ -1,0 +1,120 @@
+
+<style>
+  .wrap { padding: 1rem 0; font-family: var(--font-sans); }
+  .progress-info { display: flex; justify-content: space-between; font-size: 13px; color: var(--color-text-secondary); margin-bottom: 6px; }
+  .bar-bg { background: var(--color-background-secondary); border-radius: 99px; height: 14px; overflow: hidden; border: 0.5px solid var(--color-border-tertiary); }
+  .bar-fill { height: 100%; border-radius: 99px; background: #378ADD; transition: width 0.4s ease; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 1.5rem; }
+  .stat { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 0.75rem 1rem; text-align: center; }
+  .stat-val { font-size: 20px; font-weight: 500; color: var(--color-text-primary); }
+  .stat-lbl { font-size: 12px; color: var(--color-text-secondary); margin-top: 2px; }
+  .garrafas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 1.5rem; }
+  .garrafa-card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem; cursor: pointer; transition: border-color 0.2s; }
+  .garrafa-card.done { border: 1.5px solid #378ADD; background: #E6F1FB; }
+  .garrafa-icon { font-size: 28px; display: block; margin-bottom: 6px; }
+  .garrafa-titulo { font-size: 13px; font-weight: 500; color: var(--color-text-primary); }
+  .garrafa-card.done .garrafa-titulo { color: #0C447C; }
+  .garrafa-hora { font-size: 12px; color: var(--color-text-secondary); margin-top: 2px; }
+  .garrafa-card.done .garrafa-hora { color: #185FA5; }
+  .slider-wrap { margin-top: 1.5rem; background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; }
+  .slider-titulo { font-size: 13px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 10px; }
+  .slider-row { display: flex; align-items: center; gap: 12px; }
+  .slider-val { font-size: 13px; font-weight: 500; min-width: 50px; color: var(--color-text-primary); }
+  .tip-box { background: #E6F1FB; border: 0.5px solid #B5D4F4; border-radius: var(--border-radius-md); padding: 0.75rem 1rem; margin-top: 1.5rem; font-size: 13px; color: #0C447C; display: flex; gap: 10px; align-items: flex-start; }
+  .reset-btn { margin-top: 1.5rem; font-size: 13px; color: var(--color-text-secondary); background: none; border: 0.5px solid var(--color-border-tertiary); padding: 6px 14px; border-radius: var(--border-radius-md); cursor: pointer; }
+</style>
+
+<div class="wrap">
+  <h2 class="sr-only">Rastreador de hidratação com garrafa Owala 950ml</h2>
+
+  <div class="progress-info">
+    <span id="consumido-lbl">0 ml consumidos</span>
+    <span>meta: 2.500 ml</span>
+  </div>
+  <div class="bar-bg"><div class="bar-fill" id="barra" style="width:0%"></div></div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-val" id="s-garrafas">0 / 3</div><div class="stat-lbl">garrafas</div></div>
+    <div class="stat"><div class="stat-val" id="s-pct">0%</div><div class="stat-lbl">da meta</div></div>
+    <div class="stat"><div class="stat-val" id="s-falta">2.500 ml</div><div class="stat-lbl">ainda faltam</div></div>
+  </div>
+
+  <div class="garrafas" id="garrafas-grid"></div>
+
+  <div class="slider-wrap">
+    <div class="slider-titulo"><i class="ti ti-adjustments-horizontal" aria-hidden="true" style="font-size:16px; vertical-align:-2px; margin-right:6px;"></i>Ajuste fino — última garrafa parcial</div>
+    <div class="slider-row">
+      <input type="range" min="0" max="950" step="50" value="0" id="parcial" style="flex:1;" oninput="atualizarParcial(this.value)">
+      <span class="slider-val" id="parcial-val">0 ml</span>
+    </div>
+  </div>
+
+  <div class="tip-box">
+    <i class="ti ti-bulb" aria-hidden="true" style="font-size:18px; flex-shrink:0; margin-top:1px;"></i>
+    <span id="tip-txt">Com 3 garrafas você bate 2.850 ml — já passa da meta! Tente a 1ª antes das 10h, a 2ª até 15h e a 3ª no fim do dia.</span>
+  </div>
+
+  <button class="reset-btn" onclick="resetar()"><i class="ti ti-refresh" aria-hidden="true"></i> Reiniciar o dia</button>
+</div>
+
+<script>
+const META = 2500;
+const VOL = 950;
+const SLOTS = [
+  { titulo: "1ª garrafa", hora: "manhã — até 10h" },
+  { titulo: "2ª garrafa", hora: "tarde — até 15h" },
+  { titulo: "3ª garrafa", hora: "noite — até 21h" },
+];
+const ICONS = ["🫙", "🫙", "🫙"];
+
+let cheias = [false, false, false];
+let parcial = 0;
+
+function total() {
+  return cheias.filter(Boolean).length * VOL + parcial;
+}
+
+function render() {
+  const t = total();
+  const pct = Math.min(100, Math.round(t / META * 100));
+  const marcadas = cheias.filter(Boolean).length;
+
+  document.getElementById('barra').style.width = pct + '%';
+  document.getElementById('consumido-lbl').textContent = t.toLocaleString('pt-BR') + ' ml consumidos';
+  document.getElementById('s-garrafas').textContent = marcadas + ' / 3';
+  document.getElementById('s-pct').textContent = pct + '%';
+  const falta = Math.max(0, META - t);
+  document.getElementById('s-falta').textContent = falta > 0 ? falta.toLocaleString('pt-BR') + ' ml' : '🎉 Meta!';
+
+  const grid = document.getElementById('garrafas-grid');
+  grid.innerHTML = '';
+  SLOTS.forEach((s, i) => {
+    const div = document.createElement('div');
+    div.className = 'garrafa-card' + (cheias[i] ? ' done' : '');
+    div.onclick = () => { cheias[i] = !cheias[i]; render(); };
+    div.innerHTML = `
+      <span class="garrafa-icon">${cheias[i] ? '✅' : '🫙'}</span>
+      <div class="garrafa-titulo">${s.titulo}</div>
+      <div class="garrafa-hora">${s.hora}</div>
+      <div style="font-size:12px; margin-top:4px; color: ${cheias[i] ? '#185FA5' : 'var(--color-text-secondary)'};">950 ml</div>
+    `;
+    grid.appendChild(div);
+  });
+}
+
+function atualizarParcial(v) {
+  parcial = parseInt(v);
+  document.getElementById('parcial-val').textContent = parcial.toLocaleString('pt-BR') + ' ml';
+  render();
+}
+
+function resetar() {
+  cheias = [false, false, false];
+  parcial = 0;
+  document.getElementById('parcial').value = 0;
+  document.getElementById('parcial-val').textContent = '0 ml';
+  render();
+}
+
+render();
+</script>
